@@ -36,6 +36,9 @@ A web-based real-time monitoring system for Li-ion (18650) battery discharge exp
 - Select Arduino COM port
 - Start logging using Low RH / High RH buttons
 
+## Preview
+![UAV Battery Monitoring Dashboard](docs/dashboard.png)
+
 ##  Safety
 - Automatic alarm triggers below 3.0 V
 - Logging stops to prevent deep discharge
