@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UAV Power Systems | Research Interface</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+<style>
+    :root {
+        --bg-body: #0f172a;
+        --bg-card: #1e293b;
+        --bg-panel: #334155;
+        --text-main: #f8fafc;
+        --text-muted: #94a3b8;
+        --accent-primary: #38bdf8;
+        --accent-success: #34d399;
+        --accent-danger: #f87171;
+        --accent-warn: #fbbf24;
+        --border: 1px solid rgba(255,255,255,0.08);
+        --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+        font-family: 'Inter', sans-serif;
+        background-color: var(--bg-body);
+        color: var(--text-main);
+        margin: 0; padding: 0;
+        height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+    }
+
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+    ::-webkit-scrollbar-corner { background: transparent; }
+
+    header {
+        background: rgba(15, 23, 42, 0.95);
+        backdrop-filter: blur(10px);
+        padding: 15px 25px;
+        border-bottom: var(--border);
+        display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+    }
+
+    .brand h2 { margin: 0; font-weight: 600; font-size: 1.1rem; letter-spacing: 0.5px; }
+    .brand span { font-size: 0.8rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+    
+    .status-badge {
+        display: flex; align-items: center; gap: 8px; font-size: 0.85rem;
+        background: rgba(255,255,255,0.05); padding: 6px 12px; border-radius: 20px; border: var(--border);
+    }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #64748b; box-shadow: 0 0 5px #64748b; transition: all 0.3s; }
+    .status-dot.connected { background: var(--accent-success); box-shadow: 0 0 8px var(--accent-success); }
+
+    .btn-connect {
+        background: var(--accent-primary); color: #0f172a; border: none;
+        padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.85rem; cursor: pointer;
+    }
+
+    .main-container { display: grid; grid-template-columns: 320px 1fr; flex: 1; overflow: hidden; }
+
+    .sidebar {
+        background: var(--bg-card); border-right: var(--border);
+        padding: 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto;
+    }
+
+    .panel-section { display: flex; flex-direction: column; gap: 10px; }
+    .section-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); font-weight: 600; }
+
+    .live-metrics { display: grid; grid-template-columns: 1fr; gap: 12px; }
+
+    .metric-card {
+        background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; border: var(--border);
+        display: flex; justify-content: space-between; align-items: center;
+    }
+
+    .health-card { justify-content: flex-start; gap: 15px; position: relative; }
+    .ring-container { position: relative; width: 60px; height: 60px; flex-shrink: 0; }
+    .progress-ring__circle { transition: stroke-dashoffset 0.35s; transform: rotate(-90deg); transform-origin: 50% 50%; }
+    .ring-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-family: 'JetBrains Mono'; font-size: 0.85rem; font-weight: 700; color: var(--text-main); }
+
+    .metric-info { display: flex; flex-direction: column; }
+    .metric-label { font-size: 0.75rem; color: var(--text-muted); }
+    .metric-value { font-family: 'JetBrains Mono', monospace; font-size: 1.4rem; font-weight: 700; color: var(--text-main); margin-top: 4px; }
+    .metric-unit { font-size: 0.8rem; color: var(--text-muted); font-weight: 400; margin-left: 4px;}
+    .metric-icon { font-size: 1.2rem; color: var(--text-muted); opacity: 0.5; }
+
+    .control-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .btn-ctrl { background: transparent; border: 1px solid var(--text-muted); color: var(--text-muted); padding: 10px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; transition: 0.2s; }
+    .btn-ctrl:hover { border-color: var(--text-main); color: var(--text-main); }
+    .btn-ctrl.active { background: rgba(52, 211, 153, 0.15); border-color: var(--accent-success); color: var(--accent-success); }
+    .btn-stop { grid-column: span 2; border-color: #475569; background: rgba(255,255,255,0.03); }
+    
+    .btn-session { grid-column: span 2; border-color: var(--accent-primary); color: var(--accent-primary); background: rgba(56, 189, 248, 0.1); }
+    .btn-session:hover { background: var(--accent-primary); color: #0f172a; }
+
+    .dashboard { padding: 20px; overflow-y: auto; display: grid; grid-template-rows: 400px 1fr auto; gap: 20px; }
+    .chart-wrapper { background: var(--bg-card); border: var(--border); border-radius: 12px; padding: 15px; box-shadow: var(--shadow); }
+    
+    .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .table-container { background: var(--bg-card); border: var(--border); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; box-shadow: var(--shadow); max-height: 350px; }
+    .table-header { padding: 10px 15px; background: rgba(255,255,255,0.03); border-bottom: var(--border); display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; font-weight: 600; }
+
+    .btn-download {
+        background: transparent; border: 1px solid rgba(255, 255, 255, 0.3); color: #ffffff;
+        padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem;
+        transition: all 0.2s; display: flex; align-items: center; gap: 6px;
+    }
+    .btn-download:hover { background: rgba(255, 255, 255, 0.1); border-color: #ffffff; }
+    
+    .table-cols { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; padding: 8px 15px; border-bottom: var(--border); font-size: 0.75rem; color: var(--text-muted); text-align: right; }
+    .table-cols span:first-child { text-align: left; }
+    .scroll-area { overflow-y: auto; flex: 1; scrollbar-gutter: stable; }
+    .data-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; padding: 8px 15px; border-bottom: 1px solid rgba(255,255,255,0.03); text-align: right; color: var(--text-muted); font-family: 'JetBrains Mono'; font-size: 0.8rem; }
+    .data-row span:first-child { text-align: left; color: var(--text-main); }
+    .cycle-cols { grid-template-columns: 0.5fr 1fr 1fr 1fr 1fr 1fr; }
+</style>
+</head>
+
+<body>
+
+<header>
+    <div class="brand">
+        <h2>UAV Power Systems Lab</h2>
+        <span>Li-ion 18650 | Environmental Stress Test</span>
+        <span id="liveTime" style="font-size:0.7rem; color:#94a3b8; font-family:'JetBrains Mono'; margin-left:10px;">
+            Time: 00:00:00
+        </span>
+    </div>
+    <div class="status-badge">
+        <div id="statusDot" class="status-dot"></div>
+        <span id="statusText">Disconnected</span>
+        <button id="connectBtn" class="btn-connect" onclick="connectSerial()"><i class="fa-solid fa-plug"></i> Connect</button>
+    </div>
+</header>
+
+<div class="main-container">
+    <div class="sidebar">
+        <div class="panel-section">
+            <div class="section-title">Telemetry</div>
+            <div class="live-metrics">
+                <div class="metric-card" style="border-left: 3px solid var(--accent-primary)">
+                    <div class="metric-info">
+                        <span class="metric-label">Voltage</span>
+                        <div class="metric-value"><span id="valVolt">0.00</span><span class="metric-unit">V</span></div>
+                    </div>
+                    <i class="fa-solid fa-bolt metric-icon"></i>
+                </div>
+
+                <div class="metric-card health-card" style="border-left: 3px solid var(--accent-success)">
+                    <div class="ring-container">
+                        <svg class="progress-ring" width="60" height="60">
+                           <circle stroke="rgba(255,255,255,0.1)" stroke-width="4" fill="transparent" r="26" cx="30" cy="30"/>
+                           <circle id="healthRing" class="progress-ring__circle" stroke="var(--accent-success)" stroke-width="4" fill="transparent" r="26" cx="30" cy="30" stroke-dasharray="163.36" stroke-dashoffset="163.36" stroke-linecap="round"/>
+                        </svg>
+                        <div class="ring-text"><span id="valHealth">0</span>%</div>
+                    </div>
+                    <div class="metric-info">
+                        <span class="metric-label" style="color: var(--accent-success); font-weight:600;">Battery Health</span>
+                        <span class="metric-label" style="font-size: 0.65rem;">Calc. Capacity</span>
+                    </div>
+                </div>
+
+                <div class="metric-card" style="border-left: 3px solid var(--accent-primary)">
+                    <div class="metric-info">
+                        <span class="metric-label">Humidity</span>
+                        <div class="metric-value"><span id="valHum">0.0</span><span class="metric-unit">%</span></div>
+                    </div>
+                    <i class="fa-solid fa-droplet metric-icon"></i>
+                </div>
+
+                <div class="metric-card" style="border-left: 3px solid var(--accent-warn)">
+                    <div class="metric-info">
+                        <span class="metric-label">Temperature</span>
+                        <div class="metric-value"><span id="valTemp">0.0</span><span class="metric-unit">°C</span></div>
+                    </div>
+                    <i class="fa-solid fa-temperature-half metric-icon"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel-section">
+            <div class="section-title">Chart Visibility</div>
+            <div class="control-group">
+                <button class="btn-ctrl" onclick="toggleVoltage()" style="border-color: #34d399; color:#34d399">Toggle Voltage</button>
+                <button class="btn-ctrl" onclick="toggleHumidity()" style="border-color: #38bdf8; color:#38bdf8">Toggle Humidity</button>
+            </div>
+        </div>
+
+        <div class="panel-section">
+            <div class="section-title">Logging Control</div>
+            <div class="control-group">
+                <button id="btnLow" class="btn-ctrl" onclick="setMode('low')">Low RH</button>
+                <button id="btnHigh" class="btn-ctrl" onclick="setMode('high')">High RH</button>
+                <button class="btn-ctrl btn-stop" onclick="setMode('stop')"><i class="fa-solid fa-pause"></i> Stop</button>
+                <button class="btn-ctrl btn-session" onclick="downloadAutoCSV()">
+                    <i class="fa-solid fa-file-export"></i> Download Full Session
+                </button>
+            </div>
+        </div>
+
+        <div class="panel-section">
+            <div class="section-title">Discharge Cycle</div>
+            <div class="metric-card" style="padding:10px;"><span class="metric-label">Status:</span><span id="cycleStatus" style="font-weight:700; color:var(--accent-primary); margin-left:auto">IDLE</span></div>
+            <div class="control-group">
+                <button class="btn-ctrl" onclick="startCycle('low')">Start Low</button>
+                <button class="btn-ctrl" onclick="startCycle('high')">Start High</button>
+                <button class="btn-ctrl btn-stop" onclick="stopCycle()">Stop Cycle</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="dashboard">
+        <div class="chart-wrapper" style="position:relative;">
+            <button onclick="downloadChartPNG()" style="
+                position:absolute; top:10px; right:12px;
+                background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.3);
+                color:#fff; padding:6px 10px; border-radius:6px; font-size:0.75rem;
+                cursor:pointer; display:flex; align-items:center; gap:6px; z-index:10;">
+                <i class="fa-solid fa-image"></i> PNG
+            </button>
+            <canvas id="chart"></canvas>
+        </div>
+        
+        <div class="data-grid">
+            <div class="table-container">
+                <div class="table-header">
+                    <span><i class="fa-solid fa-list-ul"></i> Low RH (Adaptive)</span>
+                    <button class="btn-download" onclick="downloadCSV('low')"><i class="fa-solid fa-download"></i> CSV</button>
+                </div>
+                <div class="table-cols"><span>Time(s)</span><span>Volt(V)</span><span>RH(%)</span><span>Temp(°C)</span></div>
+                <div id="tableLow" class="scroll-area"></div>
+            </div>
+            <div class="table-container">
+                <div class="table-header">
+                    <span><i class="fa-solid fa-list-ul"></i> High RH (Adaptive)</span>
+                    <button class="btn-download" onclick="downloadCSV('high')"><i class="fa-solid fa-download"></i> CSV</button>
+                </div>
+                <div class="table-cols"><span>Time(s)</span><span>Volt(V)</span><span>RH(%)</span><span>Temp(°C)</span></div>
+                <div id="tableHigh" class="scroll-area"></div>
+            </div>
+
+            <div class="table-container">
+                <div class="table-header">
+                    <span><i class="fa-solid fa-database"></i> Low RH RAW (2s)</span>
+                    <button class="btn-download" onclick="downloadRawCSV('low')"><i class="fa-solid fa-download"></i> CSV</button>
+                </div>
+                <div class="table-cols"><span>Time(s)</span><span>Volt(V)</span><span>RH(%)</span><span>Temp(°C)</span></div>
+                <div id="tableLowRaw" class="scroll-area"></div>
+            </div>
+            <div class="table-container">
+                <div class="table-header">
+                    <span><i class="fa-solid fa-database"></i> High RH RAW (2s)</span>
+                    <button class="btn-download" onclick="downloadRawCSV('high')"><i class="fa-solid fa-download"></i> CSV</button>
+                </div>
+                <div class="table-cols"><span>Time(s)</span><span>Volt(V)</span><span>RH(%)</span><span>Temp(°C)</span></div>
+                <div id="tableHighRaw" class="scroll-area"></div>
+            </div>
+        </div>
+        
+        <div class="table-container">
+            <div class="table-header">
+                <span><i class="fa-solid fa-rotate-right"></i> Cycle Summary</span>
+                <button class="btn-download" onclick="downloadCycleCSV()"><i class="fa-solid fa-download"></i> CSV</button>
+            </div>
+            <div class="table-cols cycle-cols"><span>#</span><span>Cond</span><span>Start V</span><span>End V</span><span>Duration</span><span>Avg RH</span></div>
+            <div id="cycleTable" class="scroll-area"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+
+    const NORMAL_STEP = 0.01;      
+    const FAST_DROP_RATE = 0.02;   
+    const RAW_INTERVAL_MS = 2000;  
+
+    
+    const CUTOFF_VOLTAGE = 3.0;
+    let dangerTriggered = false;
+
+    const siren = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
+    siren.loop = true;
+
+    let sessionId = new Date().toISOString().replace(/[:.]/g, "-");
+    let autoCSV = "Time,Volt,RH,Temp,Condition\n";
+
+    let rawLow = [], rawHigh = [];
+    let lastRawLogMillis = 0;      
+    let humidityRaw = [];          
+    let humidityTime = [];         
+
+ 
+    let lastRecordedVoltage = null;
+    let lastRecordedTime = null;
+    let startTime = null;
+    let dataLow = [], dataHigh = [];
+
+    const HUM_STEP = 1;         // Update internal value if real change >= 1%
+    let stableHumidity = null;  // Holds the current "display" value
+    let lastHumPlotTime = 0;    // Tracks when we last plotted
+    const HUM_PLOT_INTERVAL = 2;// Force plot every 2 seconds
+
+    let port, reader, buffer = "";
+    let mode = "stop";
+    let cycleActive = false, cycleId = 0, current = {}, cycleData = [];
+    let expStartTime = null, timeInterval = null;
+
+    Chart.defaults.color = '#94a3b8';
+    const ctx = document.getElementById("chart").getContext("2d");
+    
+    const chart = new Chart(ctx, {
+        type: "line",
+        data: { 
+            datasets: [
+                {
+                    label: "Voltage (V)",
+                    borderColor: "#34d399", 
+                    borderWidth: 2,
+                    pointRadius: 0, 
+                    tension: 0,
+                    data: [],
+                    yAxisID: 'y'
+                },
+                {
+                    label: "Humidity (%RH)",
+                    borderColor: "#38bdf8",
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    tension: 0.1,  /* Lower tension for stable stepped look */
+                    data: [],
+                    yAxisID: 'y1',
+                    hidden: false
+                }
+            ]
+        },
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            scales: { 
+                x: { 
+                    type: 'linear', 
+                    title: { display: true, text: 'Time (s)', color: '#94a3b8' },
+                    grid: { color: 'rgba(255,255,255,0.05)' } 
+                }, 
+                y: { 
+                    position: 'left',
+                    title: { display: true, text: 'Voltage (V)', color: '#94a3b8' },
+                    grid: { color: 'rgba(255,255,255,0.05)' } 
+                },
+                y1: {
+                    position: 'right',
+                    min: 50,
+                    max: 100,
+                    ticks: {
+                        stepSize: 5,
+                        callback: v => `${v}%`
+                    },
+                    title: {
+                        display: true,
+                        text: 'Humidity (RH)',
+                        color: '#94a3b8'
+                    },
+                    grid: {
+                        drawOnChartArea: false
+                    }
+                }
+            } 
+        }
+    });
+
+ 
+    function toggleVoltage() {
+        chart.data.datasets[0].hidden = !chart.data.datasets[0].hidden;
+        chart.update();
+    }
+
+    function toggleHumidity() {
+        chart.data.datasets[1].hidden = !chart.data.datasets[1].hidden;
+        chart.update();
+    }
+
+    function shouldLogAdaptive(v, timeSec) {
+        if (lastRecordedVoltage === null) {
+            lastRecordedVoltage = v;
+            lastRecordedTime = timeSec;
+            return true;
+        }
+        const dv = lastRecordedVoltage - v;
+        const dt = timeSec - lastRecordedTime;
+        if (dt <= 0) return false;
+        const dropRate = dv / dt;
+
+        if (dropRate >= FAST_DROP_RATE || v <= lastRecordedVoltage - NORMAL_STEP) {
+            lastRecordedVoltage = v;
+            lastRecordedTime = timeSec;
+            return true;
+        }
+        return false;
+    }
+
+    function appendAutoCSV(time, v, h, t, cond) {
+        autoCSV += `${time},${v.toFixed(2)},${h.toFixed(1)},${t.toFixed(1)},${cond}\n`;
+    }
+
+    function logRawData(timeSec, v, h, t) {
+        const now = Date.now();
+        if (now - lastRawLogMillis >= RAW_INTERVAL_MS) {
+            lastRawLogMillis = now;
+
+            appendAutoCSV(timeSec, v, h, t, mode);
+
+            if (mode === "low") {
+                rawLow.push([timeSec, v, h, t]);
+                updateTable("tableLowRaw", timeSec, v, h, t);
+            }
+            if (mode === "high") {
+                rawHigh.push([timeSec, v, h, t]);
+                updateTable("tableHighRaw", timeSec, v, h, t);
+            }
+
+            humidityRaw.push(h);
+            humidityTime.push(timeSec);
+        }
+    }
+
+    async function connectSerial() {
+        try {
+            port = await navigator.serial.requestPort();
+            await port.open({ baudRate: 9600 });
+            document.getElementById("statusDot").classList.add("connected");
+            document.getElementById("statusText").innerText = "Online";
+            document.getElementById("connectBtn").style.display = 'none';
+            const dec = new TextDecoderStream();
+            port.readable.pipeTo(dec.writable);
+            reader = dec.readable.getReader();
+            readLoop();
+        } catch(e) { console.error(e); }
+    }
+
+    async function readLoop() {
+        while (true) {
+            try {
+                const { value, done } = await reader.read();
+                if (done) break;
+                buffer += value;
+                let lines = buffer.split("\n");
+                buffer = lines.pop();
+                lines.forEach(l => processLine(l.trim()));
+            } catch(e) { break; }
+        }
+    }
+
+    function processLine(l) {
+        const p = l.split(",");
+        if (p.length !== 3) return;
+        const v = parseFloat(p[0]), h = parseFloat(p[1]), t = parseFloat(p[2]);
+        if(isNaN(v) || isNaN(h) || isNaN(t)) return;
+        if (!dangerTriggered && v <= CUTOFF_VOLTAGE) {
+            dangerTriggered = true;
+
+            siren.play().catch(()=>{});
+            mode = "stop";
+            startTime = null;
+            stopTimer();
+
+            document.getElementById("statusText").innerText = "CUTOFF";
+            document.getElementById("cycleStatus").innerText = "DANGER";
+            document.getElementById("cycleStatus").style.color = "var(--accent-danger)";
+
+            alert(`⚠️ BATTERY CUTOFF!\nVoltage dropped to ${v.toFixed(2)} V`);
+
+            return; 
+        }
+
+        document.getElementById("valVolt").innerText = v.toFixed(2);
+        document.getElementById("valHum").innerText = h.toFixed(1);
+        document.getElementById("valTemp").innerText = t.toFixed(1);
+
+        let pct = Math.max(0, Math.min(100, ((v - 3.0) / (4.2 - 3.0)) * 100));
+        document.getElementById("valHealth").innerText = pct.toFixed(0);
+        const circle = document.getElementById("healthRing");
+        if (circle) {
+            const circumference = 2 * Math.PI * 26;
+            circle.style.strokeDashoffset = circumference - (pct / 100) * circumference;
+            circle.style.stroke = pct > 50 ? "var(--accent-success)" : (pct > 20 ? "var(--accent-warn)" : "var(--accent-danger)");
+        }
+
+        if (mode !== "stop" && startTime !== null) {
+            const timeSec = Math.round((Date.now() - startTime) / 1000);
+            
+            //  RAW DATA & HUMIDITY TRACKING
+            logRawData(timeSec, v, h, t);
+
+            // FILTERED VOLTAGE (GRAPH + ADAPTIVE CSV)
+            if (shouldLogAdaptive(v, timeSec)) {
+                chart.data.datasets[0].data.push({x: timeSec, y: v});
+
+                if (mode === "low") {
+                    updateTable("tableLow", timeSec, v, h, t);
+                    dataLow.push([timeSec, v, h, t]);
+                } else if (mode === "high") {
+                    updateTable("tableHigh", timeSec, v, h, t);
+                    dataHigh.push([timeSec, v, h, t]);
+                }
+            }
+
+            //  STABLE HUMIDITY GRAPH (Update interval: 2s)
+            // Init stable val if null
+            if (stableHumidity === null) {
+                stableHumidity = h;
+            }
+
+            // Update stable value ONLY if real change >= 1%
+            if (Math.abs(h - stableHumidity) >= HUM_STEP) {
+                stableHumidity = h;
+            }
+
+            // Plot EVERY 2 seconds using current stable value
+            if (timeSec - lastHumPlotTime >= HUM_PLOT_INTERVAL) {
+                chart.data.datasets[1].data.push({
+                    x: timeSec,
+                    y: stableHumidity
+                });
+                lastHumPlotTime = timeSec;
+            }
+
+            chart.update("none");
+        }
+
+        if (cycleActive) {
+            if (current.startV === null) current.startV = v; 
+            current.rh.push(h);
+            if (v <= 3.0) { 
+                current.endV = v; 
+                stopCycle(true);
+            }
+        }
+    }
+
+    function startTimer() {
+        expStartTime = Date.now();
+        if (timeInterval) clearInterval(timeInterval);
+        timeInterval = setInterval(() => {
+            const elapsed = Date.now() - expStartTime;
+            const hrs = String(Math.floor(elapsed / 3600000)).padStart(2, '0');
+            const mins = String(Math.floor((elapsed % 3600000) / 60000)).padStart(2, '0');
+            const secs = String(Math.floor((elapsed % 60000) / 1000)).padStart(2, '0');
+            document.getElementById("liveTime").innerText = `Time: ${hrs}:${mins}:${secs}`;
+        }, 1000);
+    }
+
+    function stopTimer() {
+        if (timeInterval) { clearInterval(timeInterval); timeInterval = null; }
+    }
+
+    function setMode(m) {
+        mode = m;
+        document.getElementById("btnLow").classList.toggle("active", m === "low");
+        document.getElementById("btnHigh").classList.toggle("active", m === "high");
+
+        if (m === 'low' || m === 'high') {
+            startTime = Date.now();
+            lastRecordedVoltage = null;
+            lastRecordedTime = null;
+            lastRawLogMillis = 0; 
+            humidityRaw = [];
+            humidityTime = [];
+            
+            // Reset logic for fresh graph
+            stableHumidity = null;
+            lastHumPlotTime = 0;
+            
+            dangerTriggered = false; // Reset siren trigger on new start
+            siren.pause();
+            siren.currentTime = 0;
+            document.getElementById("cycleStatus").style.color = "var(--accent-primary)"; // Reset color
+
+            startTimer();
+        } else if (m === 'stop') {
+            stopTimer();
+            startTime = null;
+            siren.pause();
+            siren.currentTime = 0;
+        }
+    }
+
+    function updateTable(id, t, v, h, T) {
+        const row = `<div class="data-row"><span>${t}</span><span>${v.toFixed(2)}</span><span>${h.toFixed(1)}</span><span>${T.toFixed(1)}</span></div>`;
+        const container = document.getElementById(id);
+        container.insertAdjacentHTML("afterbegin", row);
+        if(container.children.length > 50) container.lastElementChild.remove();
+    }
+
+    function startCycle(cond) {
+        if (cycleActive) return;
+        cycleActive = true; cycleId++;
+        document.getElementById("cycleStatus").innerText = `CYC #${cycleId}`;
+        current = { id: cycleId, cond: cond, start: Date.now(), startV: null, endV: null, rh: [] };
+    }
+
+    function stopCycle(auto = false) {
+        if (!cycleActive) return;
+        cycleActive = false;
+        let dur = (Date.now() - current.start) / 60000;
+        let avg = current.rh.length ? (current.rh.reduce((a, b) => a + b, 0) / current.rh.length) : 0;
+        let endV = current.endV ?? parseFloat(document.getElementById("valVolt").innerText);
+        let startV = current.startV ?? 0;
+        cycleData.push([current.id, current.cond, startV.toFixed(2), endV.toFixed(2), dur.toFixed(2), avg.toFixed(1)]);
+        const row = `<div class="data-row cycle-cols"><span>${current.id}</span><span>${current.cond}</span><span>${startV.toFixed(2)}</span><span>${endV.toFixed(2)}</span><span>${dur.toFixed(2)}m</span><span>${avg.toFixed(1)}%</span></div>`;
+        document.getElementById("cycleTable").insertAdjacentHTML("afterbegin", row);
+        document.getElementById("cycleStatus").innerText = "IDLE";
+    }
+
+    function downloadCSV(type) {
+        let data = type === "low" ? dataLow : dataHigh;
+        let csv = "Time,Volt,RH,Temp\n" + data.map(r=>r.join(",")).join("\n");
+        save(csv, `adaptive_${type}.csv`);
+    }
+
+    function downloadRawCSV(type) {
+        let data = type === "low" ? rawLow : rawHigh;
+        let csv = "Time,Volt,RH,Temp\n" + data.map(r=>r.join(",")).join("\n");
+        save(csv, `raw_${type}.csv`);
+    }
+
+    function downloadCycleCSV() {
+        let csv = "ID,Cond,StartV,EndV,Dur,RH\n" + cycleData.map(r=>r.join(",")).join("\n");
+        save(csv, "cycles.csv");
+    }
+
+    function downloadAutoCSV() {
+        save(autoCSV, `experiment_${sessionId}.csv`);
+    }
+
+    // STEP 2: HD Chart Export Function
+    function downloadChartPNG() {
+        const link = document.createElement("a");
+        link.href = chart.toBase64Image("image/png", 1.0);
+        link.download = `Voltage_Humidity_vs_Time_${new Date().toISOString().slice(0,10)}.png`;
+        link.click();
+    }
+
+    function save(text, name) {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(new Blob([text], { type: "text/csv" }));
+        a.download = name; a.click();
+    }
+</script>
+</body>
+</html>
