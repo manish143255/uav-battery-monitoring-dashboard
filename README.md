@@ -37,7 +37,7 @@ A web-based real-time monitoring system for Li-ion (18650) battery discharge exp
 - Start logging using Low RH / High RH buttons
 
 ## Preview
-![UAV Battery Monitoring Dashboard](docs/dashboard.png)
+![UAV Battery Monitoring Dashboard](docs/Dashboard.png)
 
 ##  Safety
 - Automatic alarm triggers below 3.0 V
